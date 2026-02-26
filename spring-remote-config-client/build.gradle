@@ -1,0 +1,23 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.acme'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api platform("org.springframework.boot:spring-boot-dependencies:3.2.5")
+    api "org.springframework.boot:spring-boot"
+    implementation "org.springframework:spring-web"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
