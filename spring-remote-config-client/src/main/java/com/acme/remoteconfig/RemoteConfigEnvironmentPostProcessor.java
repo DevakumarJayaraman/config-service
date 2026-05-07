@@ -12,6 +12,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.*;
 
 public class RemoteConfigEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
@@ -30,6 +31,8 @@ public class RemoteConfigEnvironmentPostProcessor implements EnvironmentPostProc
         props.setPropertySourceName(environment.getProperty(PREFIX + "property-source-name", props.getPropertySourceName()));
         props.setHighestPrecedence(Boolean.parseBoolean(environment.getProperty(PREFIX + "highest-precedence", "true")));
         props.setFailFast(Boolean.parseBoolean(environment.getProperty(PREFIX + "fail-fast", "false")));
+        props.setConnectTimeout(Duration.parse(environment.getProperty(PREFIX + "connect-timeout", "PT2S")));
+        props.setReadTimeout(Duration.parse(environment.getProperty(PREFIX + "read-timeout", "PT3S")));
 
         if (!props.isEnabled() || !StringUtils.hasText(props.getBaseUrl())) {
             return;
@@ -47,8 +50,7 @@ public class RemoteConfigEnvironmentPostProcessor implements EnvironmentPostProc
                 .toUri();
 
         try {
-            SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
-            RestTemplate restTemplate = new RestTemplate(rf);
+            RestTemplate restTemplate = createRestTemplate(props);
 
             ResponseEntity<Map> response = restTemplate.getForEntity(uri, Map.class);
             if (!response.getStatusCode().is2xxSuccessful()) {
@@ -78,8 +80,17 @@ public class RemoteConfigEnvironmentPostProcessor implements EnvironmentPostProc
         }
     }
 
+    protected RestTemplate createRestTemplate(RemoteConfigClientProperties props) {
+        SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
+        rf.setConnectTimeout((int) props.getConnectTimeout().toMillis());
+        rf.setReadTimeout((int) props.getReadTimeout().toMillis());
+        return new RestTemplate(rf);
+    }
+
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 10;
+        // Must run after ConfigDataEnvironmentPostProcessor (HIGHEST_PRECEDENCE + 10)
+        // so that application.yml properties like remote.config.base-url are available.
+        return Ordered.LOWEST_PRECEDENCE - 5;
     }
 }
